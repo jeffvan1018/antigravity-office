@@ -1,0 +1,130 @@
+# ==============================================================================
+# Godot 4 + C# / .NET .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Godot 4 Engine & Project Caches
+# ------------------------------------------------------------------------------
+# Godot 4 editor cache, imported resource database, shader caches, mono build temps
+.godot/
+
+# Android build directory if using Godot's Gradle build template
+/android/
+
+# Godot 3 legacy cache (in case of legacy tools)
+.import/
+
+# NOTE: Do NOT ignore *.import files!
+# Files named `<asset>.<ext>.import` contain Godot's asset import configurations
+# and MUST be committed to version control.
+
+# ------------------------------------------------------------------------------
+# Exported Game Builds & Binaries
+# ------------------------------------------------------------------------------
+# Common export destination folders
+/build/
+/builds/
+/export/
+/exports/
+/dist/
+
+# Exported binaries & packages
+*.pck
+*.apk
+*.aab
+*.exe
+*.x86_64
+*.x86
+*.arm64
+*.app
+*.dmg
+*.html
+*.wasm
+
+# Compiled translations (if any)
+*.translation
+
+# Export credentials (contains sensitive signing keystores/passwords)
+export_credentials.cfg
+
+# ------------------------------------------------------------------------------
+# .NET / C# Build Outputs & User Settings
+# ------------------------------------------------------------------------------
+# Build artifacts
+[Bb]in/
+[Oo]bj/
+out/
+
+# Legacy Godot Mono cache
+.mono/
+
+# User-specific solution/project files
+*.user
+*.userosv
+*.suo
+*.userprefs
+*.sln.docstates
+*.sln.ide
+*.pidb
+*.booproj
+*.svclog
+*.VisualState.xml
+
+# NuGet packages & lock files
+*.nupkg
+*.snupkg
+project.lock.json
+project.assets.json
+
+# ------------------------------------------------------------------------------
+# IDEs & Code Editors
+# ------------------------------------------------------------------------------
+# Visual Studio
+.vs/
+*.vsidx
+
+# JetBrains Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+*.sln.iml
+
+# Visual Studio Code
+# Ignore local workspace state, but preserve shared launch/task/extension configurations
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# General backup & swap files
+*.swp
+*.swo
+*~
+*.bak
+
+# ------------------------------------------------------------------------------
+# Logs & Crash Dumps
+# ------------------------------------------------------------------------------
+*.log
+*.crash
+*.dmp
+
+# ------------------------------------------------------------------------------
+# Operating System Artifacts
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory

@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://sk8t5x2gkg1p"]
+
+[ext_resource type="Texture2D" uid="uid://bm5mb715ijh2r" path="res://assets/backgrounds/conference.jpeg" id="1_1mqpr"]
+[ext_resource type="Script" uid="uid://rcvsc05v56cx" path="res://scripts/BaseRoom.cs" id="1_8x22q"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_ucgaa"]
+vertices = PackedVector2Array(1270, 710, 10, 710, 10, 622, 1270, 622)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(0, 612, 1280, 612, 1280, 720, 0, 720)])
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_0188o"]
+size = Vector2(20, 108)
+
+[node name="ConferenceRoom" type="Node2D" unique_id=717040147]
+script = ExtResource("1_8x22q")
+RightRoomScene = "uid://i8xynph10vic"
+
+[node name="Background" type="Sprite2D" parent="." unique_id=1022117644]
+scale = Vector2(0.465, 0.465)
+texture = ExtResource("1_1mqpr")
+centered = false
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=1649363292]
+navigation_polygon = SubResource("NavigationPolygon_ucgaa")
+
+[node name="ExitRight" type="Area2D" parent="." unique_id=1203864300]
+position = Vector2(1270, 666)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ExitRight" unique_id=604249334]
+shape = SubResource("RectangleShape2D_0188o")
+
+[node name="SpawnRight" type="Marker2D" parent="." unique_id=1190324161]
+position = Vector2(1160, 680)

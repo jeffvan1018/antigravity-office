@@ -1,0 +1,43 @@
+[gd_scene format=3 uid="uid://i8xynph10vic"]
+
+[ext_resource type="Texture2D" uid="uid://dp3gyego571lw" path="res://assets/backgrounds/cubes.jpeg" id="1_6w8pc"]
+[ext_resource type="Script" uid="uid://rcvsc05v56cx" path="res://scripts/BaseRoom.cs" id="1_j64bt"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_4kp84"]
+vertices = PackedVector2Array(1270, 710, 10, 710, 10, 625, 1270, 625)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(0, 615, 1280, 615, 1280, 720, 0, 720)])
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_0188o"]
+size = Vector2(20, 105)
+
+[node name="CubeRoom" type="Node2D" unique_id=2022203704]
+script = ExtResource("1_j64bt")
+LeftRoomScene = "uid://sk8t5x2gkg1p"
+RightRoomScene = "uid://cq48ujb31308e"
+
+[node name="Background" type="Sprite2D" parent="." unique_id=405318377]
+scale = Vector2(0.465, 0.465)
+texture = ExtResource("1_6w8pc")
+centered = false
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=100376199]
+navigation_polygon = SubResource("NavigationPolygon_4kp84")
+
+[node name="ExitLeft" type="Area2D" parent="." unique_id=857064433]
+position = Vector2(10, 667)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ExitLeft" unique_id=613448814]
+shape = SubResource("RectangleShape2D_0188o")
+
+[node name="ExitRight" type="Area2D" parent="." unique_id=1514703725]
+position = Vector2(1270, 667)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ExitRight" unique_id=1117267420]
+shape = SubResource("RectangleShape2D_0188o")
+
+[node name="SpawnLeft" type="Marker2D" parent="." unique_id=438337481]
+position = Vector2(120, 680)
+
+[node name="SpawnRight" type="Marker2D" parent="." unique_id=615968495]
+position = Vector2(1160, 680)

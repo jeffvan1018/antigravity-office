@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://doduiagd6jewi"]
+
+[ext_resource type="Texture2D" uid="uid://bmlp7csx4d3gf" path="res://assets/backgrounds/hallway.jpeg" id="1_5od6a"]
+[ext_resource type="Script" uid="uid://rcvsc05v56cx" path="res://scripts/BaseRoom.cs" id="1_mpcsp"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_yqbup"]
+vertices = PackedVector2Array(1270, 710, 10, 710, 10, 598, 1270, 598)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(0, 588, 1280, 588, 1280, 720, 0, 720)])
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_0188o"]
+size = Vector2(20, 132)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_tvil6"]
+size = Vector2(200, 20)
+
+[node name="HallwayRoom" type="Node2D" unique_id=968376916]
+script = ExtResource("1_mpcsp")
+LeftRoomScene = "uid://cq48ujb31308e"
+RightRoomScene = "uid://cuvd7wwoeo6vd"
+
+[node name="Background" type="Sprite2D" parent="." unique_id=219864813]
+scale = Vector2(0.465, 0.465)
+texture = ExtResource("1_5od6a")
+centered = false
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="." unique_id=120683791]
+navigation_polygon = SubResource("NavigationPolygon_yqbup")
+
+[node name="ExitLeft" type="Area2D" parent="." unique_id=76380640]
+position = Vector2(10, 654)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ExitLeft" unique_id=1018615525]
+shape = SubResource("RectangleShape2D_0188o")
+
+[node name="ExitRight" type="Area2D" parent="." unique_id=1767618864]
+position = Vector2(1022, 598)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ExitRight" unique_id=1146595476]
+shape = SubResource("RectangleShape2D_tvil6")
+
+[node name="SpawnLeft" type="Marker2D" parent="." unique_id=1629927070]
+position = Vector2(120, 680)
+
+[node name="SpawnRight" type="Marker2D" parent="." unique_id=607082210]
+position = Vector2(800, 680)
