@@ -56,19 +56,69 @@ public partial class AgyBridge : Node
     [Signal]
     public delegate void ProcessErrorEventHandler(string message);
 
+    [Signal]
+    public delegate void SessionResetEventHandler();
+
+    private const string SettingsPath = "user://settings.cfg";
+    private const string SettingsSection = "workspace";
+    private const string SettingsLastDirKey = "last_directory";
+
     [Export]
     public bool AutoStart { get; set; } = true;
+
+    public string WorkingDirectory { get; private set; } = string.Empty;
+    public string ProjectName { get; private set; } = string.Empty;
 
     private Process? _agyProcess;
     private StreamWriter? _stdinWriter;
     private readonly object _writeLock = new();
     private bool _shuttingDown;
+    private int _sessionGeneration;
 
-    public bool IsRunning => _agyProcess is { HasExited: false };
+    public bool IsRunning
+    {
+        get
+        {
+            if (_agyProcess is null)
+            {
+                return false;
+            }
+
+            try
+            {
+                return !_agyProcess.HasExited;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+    }
 
     public override void _Ready()
     {
         AppDomain.CurrentDomain.ProcessExit += OnDomainProcessExit;
+
+        string homeDir = GetHomeDirectory();
+        (string? cliWorkspace, string? cliProject) = ParseLaunchArgs(OS.GetCmdlineUserArgs());
+        ProjectName = cliProject ?? string.Empty;
+
+        string savedWorkspace = LoadSavedWorkingDirectory();
+        WorkingDirectory = ResolveInitialWorkingDirectory(
+            cliWorkspace,
+            savedWorkspace,
+            homeDir,
+            Directory.Exists,
+            Directory.GetCurrentDirectory());
+
+        if (!string.IsNullOrWhiteSpace(cliWorkspace))
+        {
+            string resolvedCli = ResolveWorkspacePath(cliWorkspace, Directory.GetCurrentDirectory(), homeDir);
+            if (!string.Equals(resolvedCli, WorkingDirectory, StringComparison.Ordinal))
+            {
+                EmitProcessError($"Invalid --workspace directory '{cliWorkspace}'; using '{WorkingDirectory}'.");
+            }
+        }
 
         if (AutoStart && !DisplayServer.GetName().Equals("headless", StringComparison.OrdinalIgnoreCase))
         {
@@ -106,10 +156,16 @@ public partial class AgyBridge : Node
 
         try
         {
+            string homeDir = GetHomeDirectory();
+            if (string.IsNullOrWhiteSpace(WorkingDirectory) || !Directory.Exists(WorkingDirectory))
+            {
+                WorkingDirectory = homeDir;
+            }
+
             var startInfo = new ProcessStartInfo
             {
                 FileName = "stdbuf",
-                Arguments = "-i0 -oL -eL agy --input-format stream-json --output-format stream-json",
+                WorkingDirectory = WorkingDirectory,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
@@ -119,7 +175,21 @@ public partial class AgyBridge : Node
                 StandardErrorEncoding = Encoding.UTF8
             };
 
-            string homeDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
+            startInfo.ArgumentList.Add("-i0");
+            startInfo.ArgumentList.Add("-oL");
+            startInfo.ArgumentList.Add("-eL");
+            startInfo.ArgumentList.Add("agy");
+            startInfo.ArgumentList.Add("--input-format");
+            startInfo.ArgumentList.Add("stream-json");
+            startInfo.ArgumentList.Add("--output-format");
+            startInfo.ArgumentList.Add("stream-json");
+
+            if (!string.IsNullOrWhiteSpace(ProjectName))
+            {
+                startInfo.ArgumentList.Add("--project");
+                startInfo.ArgumentList.Add(ProjectName);
+            }
+
             string localBin = Path.Combine(homeDir, ".local", "bin");
             string currentPath = startInfo.EnvironmentVariables["PATH"] ?? System.Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
             if (!string.IsNullOrEmpty(localBin) && !currentPath.Contains(localBin, StringComparison.Ordinal))
@@ -140,6 +210,7 @@ public partial class AgyBridge : Node
 
             if (!_agyProcess.Start())
             {
+                CleanupUnstartedProcess();
                 EmitProcessError("Failed to start stdbuf/agy process.");
                 return false;
             }
@@ -156,8 +227,202 @@ public partial class AgyBridge : Node
         }
         catch (Exception ex)
         {
+            CleanupUnstartedProcess();
             EmitProcessError($"Error starting agy process: {ex.Message}");
             return false;
+        }
+    }
+
+    private void CleanupUnstartedProcess()
+    {
+        if (_agyProcess is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _agyProcess.OutputDataReceived -= OnOutputDataReceived;
+            _agyProcess.ErrorDataReceived -= OnErrorDataReceived;
+            _agyProcess.Dispose();
+        }
+        catch
+        {
+            // Ignore cleanup errors.
+        }
+        finally
+        {
+            _agyProcess = null;
+        }
+    }
+
+    public bool SwitchWorkspace(string path)
+    {
+        string homeDir = GetHomeDirectory();
+        string baseDir = string.IsNullOrWhiteSpace(WorkingDirectory) ? homeDir : WorkingDirectory;
+        string resolvedPath = ResolveWorkspacePath(path, baseDir, homeDir);
+
+        if (string.IsNullOrEmpty(resolvedPath) || !Directory.Exists(resolvedPath))
+        {
+            string displayPath = string.IsNullOrEmpty(resolvedPath) ? path : resolvedPath;
+            EmitProcessError($"Workspace directory does not exist: {displayPath}");
+            return false;
+        }
+
+        ShutdownProcess();
+        WorkingDirectory = resolvedPath;
+        SaveWorkingDirectory(WorkingDirectory);
+        EmitSignal(SignalName.SessionReset);
+        return StartProcess();
+    }
+
+    public static string ResolveWorkspacePath(string? rawPath, string baseDirectory, string homeDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(rawPath))
+        {
+            return string.Empty;
+        }
+
+        string trimmed = rawPath.Trim();
+        if (trimmed.Length >= 2 &&
+            ((trimmed[0] == '"' && trimmed[^1] == '"') ||
+             (trimmed[0] == '\'' && trimmed[^1] == '\'')))
+        {
+            trimmed = trimmed[1..^1].Trim();
+        }
+
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return string.Empty;
+        }
+
+        string expanded;
+        if (trimmed == "~")
+        {
+            expanded = homeDirectory;
+        }
+        else if (trimmed.StartsWith("~/", StringComparison.Ordinal) ||
+                 trimmed.StartsWith("~\\", StringComparison.Ordinal))
+        {
+            expanded = Path.Combine(homeDirectory, trimmed[2..]);
+        }
+        else
+        {
+            expanded = trimmed;
+        }
+
+        string combined = Path.IsPathRooted(expanded)
+            ? expanded
+            : Path.Combine(string.IsNullOrWhiteSpace(baseDirectory) ? homeDirectory : baseDirectory, expanded);
+
+        try
+        {
+            string fullPath = Path.GetFullPath(combined);
+            string root = Path.GetPathRoot(fullPath) ?? string.Empty;
+            if (fullPath.Length > root.Length)
+            {
+                fullPath = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            return fullPath;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    public static (string? Workspace, string? Project) ParseLaunchArgs(IReadOnlyList<string> args)
+    {
+        string? workspace = null;
+        string? project = null;
+
+        for (int i = 0; i < args.Count; i++)
+        {
+            string arg = args[i];
+            if (arg == "--workspace" && i + 1 < args.Count)
+            {
+                workspace = args[++i];
+            }
+            else if (arg.StartsWith("--workspace=", StringComparison.Ordinal))
+            {
+                workspace = arg["--workspace=".Length..];
+            }
+            else if (arg == "--project" && i + 1 < args.Count)
+            {
+                project = args[++i];
+            }
+            else if (arg.StartsWith("--project=", StringComparison.Ordinal))
+            {
+                project = arg["--project=".Length..];
+            }
+        }
+
+        return (workspace, project);
+    }
+
+    public static string ResolveInitialWorkingDirectory(
+        string? cliWorkspace,
+        string? savedWorkspace,
+        string homeDirectory,
+        Func<string, bool> directoryExists,
+        string? cliBaseDirectory = null)
+    {
+        string baseDir = string.IsNullOrWhiteSpace(cliBaseDirectory) ? homeDirectory : cliBaseDirectory;
+
+        if (!string.IsNullOrWhiteSpace(cliWorkspace))
+        {
+            string resolvedCli = ResolveWorkspacePath(cliWorkspace, baseDir, homeDirectory);
+            if (!string.IsNullOrEmpty(resolvedCli) && directoryExists(resolvedCli))
+            {
+                return resolvedCli;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(savedWorkspace))
+        {
+            string resolvedSaved = ResolveWorkspacePath(savedWorkspace, homeDirectory, homeDirectory);
+            if (!string.IsNullOrEmpty(resolvedSaved) && directoryExists(resolvedSaved))
+            {
+                return resolvedSaved;
+            }
+        }
+
+        return ResolveWorkspacePath(homeDirectory, homeDirectory, homeDirectory);
+    }
+
+    private static string GetHomeDirectory()
+    {
+        string envHome = OS.GetEnvironment("HOME");
+        if (!string.IsNullOrWhiteSpace(envHome))
+        {
+            return envHome;
+        }
+
+        return System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
+    }
+
+    private static string LoadSavedWorkingDirectory()
+    {
+        using var config = new ConfigFile();
+        Error err = config.Load(SettingsPath);
+        if (err != Error.Ok)
+        {
+            return string.Empty;
+        }
+
+        Variant val = config.GetValue(SettingsSection, SettingsLastDirKey, string.Empty);
+        return val.VariantType == Variant.Type.String ? val.AsString() : string.Empty;
+    }
+
+    private static void SaveWorkingDirectory(string path)
+    {
+        using var config = new ConfigFile();
+        config.Load(SettingsPath);
+        config.SetValue(SettingsSection, SettingsLastDirKey, path);
+        Error err = config.Save(SettingsPath);
+        if (err != Error.Ok)
+        {
+            GD.PushWarning($"[AgyBridge] Failed to save settings to {SettingsPath}: {err}");
         }
     }
 
@@ -329,39 +594,64 @@ public partial class AgyBridge : Node
             return;
         }
 
+        int generation = System.Threading.Volatile.Read(ref _sessionGeneration);
         IReadOnlyList<AgyParsedEvent> parsedEvents = ParseNdjsonLine(e.Data);
         foreach (AgyParsedEvent evt in parsedEvents)
         {
-            DispatchParsedEvent(evt);
+            DispatchParsedEvent(evt, generation);
         }
     }
 
-    private void DispatchParsedEvent(AgyParsedEvent evt)
+    private void DispatchParsedEvent(AgyParsedEvent evt, int generation)
     {
         switch (evt.Kind)
         {
             case AgyEventKind.Init:
-                Callable.From(() => EmitSignal(SignalName.SessionInitialized, evt.ConversationId)).CallDeferred();
+                Callable.From(() =>
+                {
+                    if (generation == System.Threading.Volatile.Read(ref _sessionGeneration))
+                        EmitSignal(SignalName.SessionInitialized, evt.ConversationId);
+                }).CallDeferred();
                 break;
 
             case AgyEventKind.AgentResponse:
-                Callable.From(() => EmitSignal(SignalName.AgentTextDelta, evt.ConversationId, evt.TextDelta)).CallDeferred();
+                Callable.From(() =>
+                {
+                    if (generation == System.Threading.Volatile.Read(ref _sessionGeneration))
+                        EmitSignal(SignalName.AgentTextDelta, evt.ConversationId, evt.TextDelta);
+                }).CallDeferred();
                 break;
 
             case AgyEventKind.ToolStep:
-                Callable.From(() => EmitSignal(SignalName.ToolStepUpdated, evt.ConversationId, evt.ToolName, evt.ToolState)).CallDeferred();
+                Callable.From(() =>
+                {
+                    if (generation == System.Threading.Volatile.Read(ref _sessionGeneration))
+                        EmitSignal(SignalName.ToolStepUpdated, evt.ConversationId, evt.ToolName, evt.ToolState);
+                }).CallDeferred();
                 break;
 
             case AgyEventKind.SubagentUpdate:
-                Callable.From(() => EmitSignal(SignalName.SubagentUpdated, evt.ConversationId, evt.SubagentId, evt.SubagentName, evt.SubagentState)).CallDeferred();
+                Callable.From(() =>
+                {
+                    if (generation == System.Threading.Volatile.Read(ref _sessionGeneration))
+                        EmitSignal(SignalName.SubagentUpdated, evt.ConversationId, evt.SubagentId, evt.SubagentName, evt.SubagentState);
+                }).CallDeferred();
                 break;
 
             case AgyEventKind.Result:
-                Callable.From(() => EmitSignal(SignalName.TurnCompleted, evt.ConversationId, evt.Status, evt.Error, evt.Response)).CallDeferred();
+                Callable.From(() =>
+                {
+                    if (generation == System.Threading.Volatile.Read(ref _sessionGeneration))
+                        EmitSignal(SignalName.TurnCompleted, evt.ConversationId, evt.Status, evt.Error, evt.Response);
+                }).CallDeferred();
                 break;
 
             case AgyEventKind.RawOutput:
-                Callable.From(() => EmitSignal(SignalName.RawOutputReceived, evt.RawLine)).CallDeferred();
+                Callable.From(() =>
+                {
+                    if (generation == System.Threading.Volatile.Read(ref _sessionGeneration))
+                        EmitSignal(SignalName.RawOutputReceived, evt.RawLine);
+                }).CallDeferred();
                 break;
         }
     }
@@ -373,8 +663,13 @@ public partial class AgyBridge : Node
             return;
         }
 
+        int generation = System.Threading.Volatile.Read(ref _sessionGeneration);
         string line = e.Data;
-        Callable.From(() => EmitSignal(SignalName.RawOutputReceived, $"[stderr] {line}")).CallDeferred();
+        Callable.From(() =>
+        {
+            if (generation == System.Threading.Volatile.Read(ref _sessionGeneration))
+                EmitSignal(SignalName.RawOutputReceived, $"[stderr] {line}");
+        }).CallDeferred();
     }
 
     private void EmitProcessError(string message)
@@ -391,6 +686,7 @@ public partial class AgyBridge : Node
         }
 
         _shuttingDown = true;
+        System.Threading.Interlocked.Increment(ref _sessionGeneration);
 
         lock (_writeLock)
         {

@@ -478,5 +478,82 @@ void Assert(bool condition, string message)
         "Infinite viewport height falls back to zoom (1, 1)");
 }
 
+// 8. Agy Workspace Resolution, CLI Args, Local Commands, and Lease Reset Tests
+{
+    string home = "/Users/tester";
+    string currentBase = "/Users/tester/projects/alpha";
+
+    Assert(AgyBridge.ResolveWorkspacePath("~", currentBase, home) == "/Users/tester",
+        "ResolveWorkspacePath expands '~' to home directory");
+    Assert(AgyBridge.ResolveWorkspacePath("~/work/repo/", currentBase, home) == "/Users/tester/work/repo",
+        "ResolveWorkspacePath expands '~/...' and trims trailing slash");
+    Assert(AgyBridge.ResolveWorkspacePath("../beta", currentBase, home) == "/Users/tester/projects/beta",
+        "ResolveWorkspacePath resolves relative paths against base directory");
+    Assert(AgyBridge.ResolveWorkspacePath("\"/tmp/my dir\"", currentBase, home) == "/tmp/my dir",
+        "ResolveWorkspacePath strips surrounding quotes");
+    Assert(AgyBridge.ResolveWorkspacePath("   ", currentBase, home) == string.Empty,
+        "ResolveWorkspacePath returns empty for whitespace");
+
+    var (ws1, proj1) = AgyBridge.ParseLaunchArgs(new[] { "--workspace", "/tmp/ws1", "--project", "demo" });
+    Assert(ws1 == "/tmp/ws1" && proj1 == "demo", "ParseLaunchArgs parses space-separated --workspace and --project");
+
+    var (ws2, proj2) = AgyBridge.ParseLaunchArgs(new[] { "--workspace=/tmp/ws2", "--project=app2" });
+    Assert(ws2 == "/tmp/ws2" && proj2 == "app2", "ParseLaunchArgs parses equals-separated --workspace and --project");
+
+    var (ws3, proj3) = AgyBridge.ParseLaunchArgs(new[] { "--workspace" });
+    Assert(ws3 is null && proj3 is null, "ParseLaunchArgs ignores dangling --workspace without value");
+
+    var validDirs = new HashSet<string>(StringComparer.Ordinal) { "/tmp/cli", "/tmp/saved", "/Users/tester" };
+    Assert(AgyBridge.ResolveInitialWorkingDirectory("/tmp/cli", "/tmp/saved", home, validDirs.Contains) == "/tmp/cli",
+        "ResolveInitialWorkingDirectory prioritizes valid CLI --workspace over saved directory");
+    Assert(AgyBridge.ResolveInitialWorkingDirectory("/tmp/missing", "/tmp/saved", home, validDirs.Contains) == "/tmp/saved",
+        "ResolveInitialWorkingDirectory falls back to valid saved directory when CLI --workspace is invalid");
+    Assert(AgyBridge.ResolveInitialWorkingDirectory("/tmp/missing", "/tmp/also-missing", home, validDirs.Contains) == "/Users/tester",
+        "ResolveInitialWorkingDirectory falls back to home directory when CLI and saved directories are invalid");
+
+    // Local slash command parsing
+    Assert(SierraConsole.TryParseLocalCommand("/pwd", out var pwdKind, out var pwdArg) &&
+           pwdKind == LocalCommandKind.Pwd && pwdArg == string.Empty,
+        "TryParseLocalCommand matches /pwd");
+    Assert(!SierraConsole.TryParseLocalCommand("/pwd extra", out _, out _),
+        "TryParseLocalCommand does not intercept /pwd with extra args");
+    Assert(SierraConsole.TryParseLocalCommand("/workspace ~/proj", out var wsKind, out var wsArg) &&
+           wsKind == LocalCommandKind.Workspace && wsArg == "~/proj",
+        "TryParseLocalCommand matches /workspace <path>");
+    Assert(SierraConsole.TryParseLocalCommand("/workspace", out var wsEmptyKind, out var wsEmptyArg) &&
+           wsEmptyKind == LocalCommandKind.Workspace && wsEmptyArg == string.Empty,
+        "TryParseLocalCommand matches bare /workspace");
+    Assert(!SierraConsole.TryParseLocalCommand("/workspace-other foo", out _, out _),
+        "TryParseLocalCommand does not intercept /workspace-other");
+    Assert(!SierraConsole.TryParseLocalCommand("/init", out _, out _),
+        "TryParseLocalCommand forwards /init to agy");
+    Assert(!SierraConsole.TryParseLocalCommand("hello", out _, out _),
+        "TryParseLocalCommand forwards normal prompts to agy");
+
+    // Workspace label formatting
+    Assert(SierraConsole.FormatWorkspaceLabel(null) == "📁 (none)", "FormatWorkspaceLabel handles null");
+    Assert(SierraConsole.FormatWorkspaceLabel("/") == "📁 /", "FormatWorkspaceLabel handles root '/'");
+    Assert(SierraConsole.FormatWorkspaceLabel("/Users/tester/my-app/") == "📁 my-app", "FormatWorkspaceLabel shows basename");
+
+    // AgentLeaseRegistry.ReleaseAllLeases
+    var resetReg = new AgentLeaseRegistry(CharacterAgent.Roster);
+    resetReg.AcquireOrResumeMainLease("conv-a", (_, _) => true);
+    resetReg.AcquireSubagentLease("conv-a", "sub-1", (_, _) => true);
+    Assert(resetReg.Leases.Count == 2 && resetReg.AvailableCount == 8,
+        "Registry holds 2 active leases before ReleaseAllLeases");
+    var releasedAll = resetReg.ReleaseAllLeases();
+    Assert(releasedAll.Count == 2 && resetReg.Leases.Count == 0 && resetReg.AvailableCount == 10,
+        "ReleaseAllLeases clears all leases and restores all 10 characters to available pool");
+    Assert(resetReg.ReleaseAllLeases().Count == 0,
+        "ReleaseAllLeases is idempotent when registry is already empty");
+
+    Assert(SierraConsole.TryParseLocalCommand("  /PWD  ", out var pwdUpperKind, out _) &&
+           pwdUpperKind == LocalCommandKind.Pwd,
+        "TryParseLocalCommand matches /PWD case-insensitively with whitespace");
+    Assert(SierraConsole.TryParseLocalCommand("/workspace \"/tmp/my project\"", out var wsQuotedKind, out var wsQuotedArg) &&
+           wsQuotedKind == LocalCommandKind.Workspace && wsQuotedArg == "\"/tmp/my project\"",
+        "TryParseLocalCommand preserves quoted argument for ResolveWorkspacePath");
+}
+
 Console.WriteLine($"Tests completed: {passed} passed, {failed} failed.");
 return failed == 0 ? 0 : 1;

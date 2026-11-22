@@ -197,6 +197,24 @@ public sealed class AgentLeaseRegistry
         return lease;
     }
 
+    public IReadOnlyList<AgentLease> ReleaseAllLeases()
+    {
+        if (_leases.Count == 0)
+        {
+            return Array.Empty<AgentLease>();
+        }
+
+        var released = new List<AgentLease>(_leases.Values);
+        _leases.Clear();
+        _leasedCharacters.Clear();
+        foreach (AgentLease lease in released)
+        {
+            _availableCharacters.Enqueue(lease.CharacterName);
+        }
+
+        return released;
+    }
+
     private string DequeueAvailableCharacter()
     {
         while (_availableCharacters.Count > 0)
@@ -236,6 +254,7 @@ public partial class AgentDirector : Node
             _agyBridge.ToolStepUpdated += OnToolStepUpdated;
             _agyBridge.SubagentUpdated += OnSubagentUpdated;
             _agyBridge.TurnCompleted += OnTurnCompleted;
+            _agyBridge.SessionReset += OnSessionReset;
         }
     }
 
@@ -248,6 +267,7 @@ public partial class AgentDirector : Node
             _agyBridge.ToolStepUpdated -= OnToolStepUpdated;
             _agyBridge.SubagentUpdated -= OnSubagentUpdated;
             _agyBridge.TurnCompleted -= OnTurnCompleted;
+            _agyBridge.SessionReset -= OnSessionReset;
         }
     }
 
@@ -321,6 +341,18 @@ public partial class AgentDirector : Node
         if (lease is not null && _agents.TryGetValue(lease.CharacterName, out CharacterAgent? agent))
         {
             agent.SetDirectedPose("seated_back");
+        }
+    }
+
+    private void OnSessionReset()
+    {
+        IReadOnlyList<AgentLease> released = _registry.ReleaseAllLeases();
+        foreach (AgentLease lease in released)
+        {
+            if (_agents.TryGetValue(lease.CharacterName, out CharacterAgent? agent))
+            {
+                agent.ReturnToAutonomous();
+            }
         }
     }
 
