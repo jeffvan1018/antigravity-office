@@ -1,0 +1,281 @@
+[gd_scene format=3 uid="uid://vblyao2lqa40"]
+
+[ext_resource type="Script" uid="uid://u6v5iumks67u" path="res://scripts/simulation/Main.cs" id="1_main_script"]
+[ext_resource type="Script" uid="uid://bixcivcebsxax" path="res://scripts/simulation/AgentDirector.cs" id="2_director_script"]
+[ext_resource type="Script" uid="uid://cgcvkiywy6nxb" path="res://scripts/simulation/DoorPortal.cs" id="3_portal_script"]
+[ext_resource type="Script" uid="uid://b8iqnl4vldej8" path="res://scripts/simulation/POIMarker.cs" id="4_poi_script"]
+[ext_resource type="PackedScene" path="res://scenes/SierraConsole.tscn" id="5_sierra_console"]
+[ext_resource type="Texture2D" uid="uid://bvy1v3d16a66y" path="res://assets/backgrounds/google-conference-room.png" id="6_bg_conf"]
+[ext_resource type="Texture2D" uid="uid://o1tb7o7857nt" path="res://assets/backgrounds/google-corporate-office.png" id="7_bg_corp"]
+[ext_resource type="Texture2D" uid="uid://ccnqkier7va26" path="res://assets/backgrounds/google-coffee-shop-passthrough.png" id="8_bg_coffee"]
+[ext_resource type="Texture2D" uid="uid://ccp47vaw35l7g" path="res://assets/backgrounds/google-printer-server-area.png" id="9_bg_printer"]
+[ext_resource type="Texture2D" uid="uid://b0y65a0lquq6x" path="res://assets/backgrounds/google-server-room.png" id="10_bg_server"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_room_floor"]
+vertices = PackedVector2Array(1246, 470, 1246, 710, 130, 710, 130, 470)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(120, 460, 1256, 460, 1256, 720, 120, 720)])
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_server_room_floor"]
+vertices = PackedVector2Array(1246, 580, 1246, 710, 130, 710, 130, 580)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(120, 570, 1256, 570, 1256, 720, 120, 720)])
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_printer_server_floor"]
+vertices = PackedVector2Array(1170, 575, 1170, 710, 130, 710, 130, 575)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(120, 565, 1180, 565, 1180, 720, 120, 720)])
+
+[node name="Main" type="Node" unique_id=381407139]
+script = ExtResource("1_main_script")
+
+[node name="AgentDirector" type="Node" parent="." unique_id=301102772]
+script = ExtResource("2_director_script")
+
+[node name="OfficeWorld" type="Node2D" parent="." unique_id=220855974]
+
+[node name="Rooms" type="Node2D" parent="OfficeWorld" unique_id=825643716]
+
+[node name="ConferenceRoom" type="Node2D" parent="OfficeWorld/Rooms" unique_id=77621172]
+
+[node name="Background" type="Sprite2D" parent="OfficeWorld/Rooms/ConferenceRoom" unique_id=318688455]
+texture = ExtResource("6_bg_conf")
+centered = false
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="OfficeWorld/Rooms/ConferenceRoom" unique_id=1547461385]
+navigation_polygon = SubResource("NavigationPolygon_room_floor")
+
+[node name="DoorRight" type="Node2D" parent="OfficeWorld/Rooms/ConferenceRoom" unique_id=515728298]
+position = Vector2(1240, 560)
+script = ExtResource("3_portal_script")
+RoomId = "conference_room"
+PortalName = "DoorRight"
+TargetRoomId = "corporate_office"
+TargetPortalName = "DoorLeft"
+
+[node name="ConferenceSeatPOI1" type="Node2D" parent="OfficeWorld/Rooms/ConferenceRoom" unique_id=768020938]
+position = Vector2(560, 472)
+script = ExtResource("4_poi_script")
+RoomId = "conference_room"
+PoiKind = "ConferenceSeatPOI"
+AnimationName = "seated_front"
+
+[node name="ConferenceSeatPOI2" type="Node2D" parent="OfficeWorld/Rooms/ConferenceRoom" unique_id=167330579]
+position = Vector2(816, 472)
+script = ExtResource("4_poi_script")
+RoomId = "conference_room"
+PoiKind = "ConferenceSeatPOI"
+AnimationName = "seated_front"
+
+[node name="ConferenceSeatPOI3" type="Node2D" parent="OfficeWorld/Rooms/ConferenceRoom" unique_id=122948287]
+position = Vector2(560, 563)
+script = ExtResource("4_poi_script")
+RoomId = "conference_room"
+PoiKind = "ConferenceSeatPOI"
+AnimationName = "seated_back"
+
+[node name="CorporateOffice" type="Node2D" parent="OfficeWorld/Rooms" unique_id=1303137399]
+position = Vector2(1600, 0)
+
+[node name="Background" type="Sprite2D" parent="OfficeWorld/Rooms/CorporateOffice" unique_id=1259633764]
+texture = ExtResource("7_bg_corp")
+centered = false
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="OfficeWorld/Rooms/CorporateOffice" unique_id=1159795145]
+navigation_polygon = SubResource("NavigationPolygon_room_floor")
+
+[node name="DoorLeft" type="Node2D" parent="OfficeWorld/Rooms/CorporateOffice" unique_id=139189419]
+position = Vector2(136, 560)
+script = ExtResource("3_portal_script")
+RoomId = "corporate_office"
+PortalName = "DoorLeft"
+TargetRoomId = "conference_room"
+TargetPortalName = "DoorRight"
+
+[node name="DoorRight" type="Node2D" parent="OfficeWorld/Rooms/CorporateOffice" unique_id=500201734]
+position = Vector2(1240, 560)
+script = ExtResource("3_portal_script")
+RoomId = "corporate_office"
+PortalName = "DoorRight"
+TargetRoomId = "coffee_shop"
+TargetPortalName = "DoorLeft"
+
+[node name="DeskPOI1" type="Node2D" parent="OfficeWorld/Rooms/CorporateOffice" unique_id=998286204]
+position = Vector2(350, 558)
+script = ExtResource("4_poi_script")
+RoomId = "corporate_office"
+AnimationName = "seated_back_typing"
+
+[node name="DeskPOI2" type="Node2D" parent="OfficeWorld/Rooms/CorporateOffice" unique_id=1457723328]
+position = Vector2(688, 558)
+script = ExtResource("4_poi_script")
+RoomId = "corporate_office"
+AnimationName = "seated_back_typing"
+
+[node name="DeskPOI3" type="Node2D" parent="OfficeWorld/Rooms/CorporateOffice" unique_id=1086272835]
+position = Vector2(1026, 558)
+script = ExtResource("4_poi_script")
+RoomId = "corporate_office"
+AnimationName = "seated_back_typing"
+
+[node name="CoffeeShop" type="Node2D" parent="OfficeWorld/Rooms" unique_id=299570772]
+position = Vector2(3200, 0)
+
+[node name="Background" type="Sprite2D" parent="OfficeWorld/Rooms/CoffeeShop" unique_id=1767516990]
+texture = ExtResource("8_bg_coffee")
+centered = false
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="OfficeWorld/Rooms/CoffeeShop" unique_id=784704447]
+navigation_polygon = SubResource("NavigationPolygon_room_floor")
+
+[node name="DoorLeft" type="Node2D" parent="OfficeWorld/Rooms/CoffeeShop" unique_id=514405357]
+position = Vector2(136, 560)
+script = ExtResource("3_portal_script")
+RoomId = "coffee_shop"
+PortalName = "DoorLeft"
+TargetRoomId = "corporate_office"
+TargetPortalName = "DoorRight"
+
+[node name="DoorRight" type="Node2D" parent="OfficeWorld/Rooms/CoffeeShop" unique_id=369502850]
+position = Vector2(1240, 560)
+script = ExtResource("3_portal_script")
+RoomId = "coffee_shop"
+PortalName = "DoorRight"
+TargetRoomId = "printer_server_area"
+TargetPortalName = "DoorLeft"
+
+[node name="CounterPOI1" type="Node2D" parent="OfficeWorld/Rooms/CoffeeShop" unique_id=899942999]
+position = Vector2(540, 560)
+script = ExtResource("4_poi_script")
+RoomId = "coffee_shop"
+PoiKind = "CounterPOI"
+AnimationName = "drink_coffee"
+
+[node name="CounterPOI2" type="Node2D" parent="OfficeWorld/Rooms/CoffeeShop" unique_id=1107008639]
+position = Vector2(836, 560)
+script = ExtResource("4_poi_script")
+RoomId = "coffee_shop"
+PoiKind = "CounterPOI"
+AnimationName = "drink_coffee"
+
+[node name="PrinterServerArea" type="Node2D" parent="OfficeWorld/Rooms" unique_id=767539240]
+position = Vector2(4800, 0)
+
+[node name="Background" type="Sprite2D" parent="OfficeWorld/Rooms/PrinterServerArea" unique_id=1717869483]
+texture = ExtResource("9_bg_printer")
+centered = false
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="OfficeWorld/Rooms/PrinterServerArea" unique_id=1971882748]
+navigation_polygon = SubResource("NavigationPolygon_printer_server_floor")
+
+[node name="DoorLeft" type="Node2D" parent="OfficeWorld/Rooms/PrinterServerArea" unique_id=778936470]
+position = Vector2(136, 585)
+script = ExtResource("3_portal_script")
+RoomId = "printer_server_area"
+PortalName = "DoorLeft"
+TargetRoomId = "coffee_shop"
+TargetPortalName = "DoorRight"
+
+[node name="DoorTop" type="Node2D" parent="OfficeWorld/Rooms/PrinterServerArea" unique_id=2005040283]
+position = Vector2(940, 580)
+script = ExtResource("3_portal_script")
+RoomId = "printer_server_area"
+PortalName = "DoorTop"
+TargetRoomId = "server_room"
+TargetPortalName = "DoorLeft"
+
+[node name="PrinterPOI1" type="Node2D" parent="OfficeWorld/Rooms/PrinterServerArea" unique_id=748225547]
+position = Vector2(475, 636)
+script = ExtResource("4_poi_script")
+RoomId = "printer_server_area"
+PoiKind = "PrinterPOI"
+
+[node name="PrinterPOI2" type="Node2D" parent="OfficeWorld/Rooms/PrinterServerArea" unique_id=381679016]
+position = Vector2(645, 618)
+script = ExtResource("4_poi_script")
+RoomId = "printer_server_area"
+PoiKind = "PrinterPOI"
+
+[node name="ServerRoom" type="Node2D" parent="OfficeWorld/Rooms" unique_id=1260459822]
+position = Vector2(6400, 0)
+
+[node name="Background" type="Sprite2D" parent="OfficeWorld/Rooms/ServerRoom" unique_id=1403904752]
+texture = ExtResource("10_bg_server")
+centered = false
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="OfficeWorld/Rooms/ServerRoom" unique_id=139268364]
+navigation_polygon = SubResource("NavigationPolygon_server_room_floor")
+
+[node name="DoorLeft" type="Node2D" parent="OfficeWorld/Rooms/ServerRoom" unique_id=1858731146]
+position = Vector2(136, 590)
+script = ExtResource("3_portal_script")
+RoomId = "server_room"
+PortalName = "DoorLeft"
+TargetRoomId = "printer_server_area"
+TargetPortalName = "DoorTop"
+
+[node name="ServerRackPOI1" type="Node2D" parent="OfficeWorld/Rooms/ServerRoom" unique_id=217524077]
+position = Vector2(520, 590)
+script = ExtResource("4_poi_script")
+RoomId = "server_room"
+PoiKind = "ServerRackPOI"
+
+[node name="ServerRackPOI2" type="Node2D" parent="OfficeWorld/Rooms/ServerRoom" unique_id=1005268033]
+position = Vector2(850, 590)
+script = ExtResource("4_poi_script")
+RoomId = "server_room"
+PoiKind = "ServerRackPOI"
+
+[node name="YSortActors" type="Node2D" parent="OfficeWorld" unique_id=2138950681]
+y_sort_enabled = true
+
+[node name="Camera2D" type="Camera2D" parent="OfficeWorld" unique_id=881068403]
+position = Vector2(3888, 384)
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=266648630]
+layer = 10
+
+[node name="RoomNavBar" type="HBoxContainer" parent="HUD" unique_id=1274591220]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -520.0
+offset_top = 10.0
+offset_right = -12.0
+offset_bottom = 42.0
+grow_horizontal = 0
+theme_override_constants/separation = 4
+
+[node name="RoomLabel" type="Label" parent="HUD/RoomNavBar" unique_id=1403810087]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.96, 1, 1)
+theme_override_colors/font_outline_color = Color(0.05, 0.07, 0.12, 0.95)
+theme_override_constants/outline_size = 3
+text = "[3/5] Coffee Shop"
+
+[node name="BtnRoom1" type="Button" parent="HUD/RoomNavBar" unique_id=279614949]
+layout_mode = 2
+focus_mode = 0
+text = "1:Conf"
+
+[node name="BtnRoom2" type="Button" parent="HUD/RoomNavBar" unique_id=578769285]
+layout_mode = 2
+focus_mode = 0
+text = "2:Office"
+
+[node name="BtnRoom3" type="Button" parent="HUD/RoomNavBar" unique_id=1987360725]
+layout_mode = 2
+focus_mode = 0
+text = "3:Coffee"
+
+[node name="BtnRoom4" type="Button" parent="HUD/RoomNavBar" unique_id=41321212]
+layout_mode = 2
+focus_mode = 0
+text = "4:Print"
+
+[node name="BtnRoom5" type="Button" parent="HUD/RoomNavBar" unique_id=664998936]
+layout_mode = 2
+focus_mode = 0
+text = "5:Server"
+
+[node name="SierraConsole" parent="HUD" unique_id=1886295526 instance=ExtResource("5_sierra_console")]
