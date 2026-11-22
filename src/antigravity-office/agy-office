@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+TARGET_DIR="$PWD"
+if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+  TARGET_DIR="$1"
+  shift
+fi
+
+if [ ! -d "$TARGET_DIR" ]; then
+  echo "Error: Workspace directory does not exist: $TARGET_DIR" >&2
+  exit 1
+fi
+
+if command -v realpath >/dev/null 2>&1; then
+  WORKSPACE_PATH="$(realpath "$TARGET_DIR")"
+else
+  WORKSPACE_PATH="$(cd "$TARGET_DIR" && pwd)"
+fi
+
+if [ -n "${GODOT_BIN:-}" ]; then
+  exec "$GODOT_BIN" --path "$SCRIPT_DIR" -- --workspace "$WORKSPACE_PATH" "$@"
+elif [ -x "/Applications/Godot_mono.app/Contents/MacOS/Godot" ]; then
+  exec "/Applications/Godot_mono.app/Contents/MacOS/Godot" --path "$SCRIPT_DIR" -- --workspace "$WORKSPACE_PATH" "$@"
+elif [ -x "$SCRIPT_DIR/bin/antigravity-office.app/Contents/MacOS/Antigravity Office" ]; then
+  exec "$SCRIPT_DIR/bin/antigravity-office.app/Contents/MacOS/Antigravity Office" -- --workspace "$WORKSPACE_PATH" "$@"
+else
+  echo "Error: Could not find Godot_mono.app or exported Antigravity Office binary." >&2
+  exit 1
+fi
